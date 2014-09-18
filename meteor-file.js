@@ -262,5 +262,67 @@ if (Meteor.isServer) {
       fs.closeSync(fd);
     }
   });
+
+    _.extend(MeteorFile.prototype, {
+    saveGM: function (dirPath, options) {
+      var filepath = path.join(dirPath, sanitize(this.name));
+      var buffer = new Buffer(this.data);
+      var mode = this.start == 0 ? 'w' : 'a';
+
+      //save pdf to disk
+      var fd = fs.openSync(filepath, mode);
+      fs.writeSync(fd, buffer, 0, buffer.length, this.start);
+      fs.closeSync(fd);
+
+
+      //convert to in-memory thumbnail image
+      var _self = this;
+      var Future = Npm.require('fibers/future');
+
+      var fut = new Future();
+
+      gm(buffer, 'image.png')
+        //.noise('laplacian')
+        .resize(512, 512)
+        .noProfile()
+        //.adjoin()
+        .append(false)
+        /*
+        .write(filepath+".jpg", function (err) {
+          if (err)  console.log(err);
+          console.log('Created an image from a Buffer!');
+        });*/
+        .toBuffer('PNG',function (err, buffer) {
+          if (err) return handle(err);
+          //console.log(buffer);
+          _self.data = new Uint8Array(buffer);
+
+          console.log('buffer done!');
+          fut.return(_self.toJSONValue() );
+        });
+
+        return fut.wait();
+
+
+      /*
+      var fd = fs.openSync(filepath, mode);
+      fs.writeSync(fd, buffer, 0, buffer.length, this.start);
+      fs.closeSync(fd);
+      */
+
+
+      /*
+      console.log(file.name);
+      gm('/tmp/'+file.name)
+        .resize(512, 512)
+        .noProfile()
+        //.adjoin()
+        .append(false)
+        .write('/tmp/img_thumb.jpg', function (err) {
+            if (!err) console.log('done');
+            console.log(err);
+        });*/
+    }
+  });
 }
 /*****************************************************************************/
